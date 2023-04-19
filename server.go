@@ -36,7 +36,7 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 	`)
 }
 
-const divisor = 987654321
+const divisor = 287654321
 
 // compute1 is a handler that does CPU-intensive computations
 func compute1(w http.ResponseWriter, r *http.Request) {
