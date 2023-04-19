@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime/pprof"
+	"strconv"
 	"time"
 
 	// Register Pprof debug handlers
@@ -16,6 +18,7 @@ func main() {
 	http.HandleFunc("/", homepage)
 	http.HandleFunc("/compute1", compute1)
 	http.HandleFunc("/compute2", compute2)
+	http.HandleFunc("/customprofile", customprofile)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -73,4 +76,40 @@ func compute2(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("compute2: no multiple found\n")
 	fmt.Fprintf(w, "Could not find a multiple of %d", divisor)
+}
+
+// Custom profiling handler, copied from
+// https://cs.opensource.google/go/go/+/refs/tags/go1.20.3:src/net/http/pprof/pprof.go;l=125
+func customprofile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	sec, err := strconv.ParseInt(r.FormValue("seconds"), 10, 64)
+	if sec <= 0 || err != nil {
+		sec = 30
+	}
+
+	if sec > 3600 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "profile duration %ds is too large", sec)
+		return
+	}
+
+	// Set Content Type assuming StartCPUProfile will work,
+	// because if it does it starts writing.
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="profile"`)
+	if err := pprof.StartCPUProfile(w); err != nil {
+		// StartCPUProfile failed, so no writes yet.
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Could not enable CPU profiling: %s", err)
+		return
+	}
+	sleep(r, time.Duration(sec)*time.Second)
+	pprof.StopCPUProfile()
+}
+
+func sleep(r *http.Request, d time.Duration) {
+	select {
+	case <-time.After(d):
+	case <-r.Context().Done():
+	}
 }
