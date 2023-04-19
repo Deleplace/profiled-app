@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	// Register Pprof debug handlers
+	_ "net/http/pprof"
 )
 
 func main() {
